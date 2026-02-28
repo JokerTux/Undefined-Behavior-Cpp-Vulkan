@@ -47,7 +47,7 @@ Mistakes, refactors, and unfinished systems are part of the process.
 
 ## 🚧 Current state
 
-The project is under active development and learning.  
+The project is under active development and learning phase.  
 Expect:
 - frequent refactors
 - incomplete systems
@@ -61,4 +61,4 @@ That is intentional.
 ## ❤️ Final note
 
 This project represents curiosity, persistence, and respect for low-level software engineering.  
-Even if I never ship a game, the knowledge gained here will stay fore
+Even if I never ship a game, the knowledge gained here will stay forever.
