@@ -1,19 +1,39 @@
-## Milestone 2 - Device, Queues, and Swapchain Preparation
+# Milestone 2 — First Vulkan Frame (Clear Color)
 
-**Goal:** Select a suitable GPU and create a logical device capable of presenting images to the screen.
+## 🎯 Goal
+Render a solid color to the screen using Vulkan.
 
-This milestone builds on Vulkan initialization by preparing everything required to render frames later, without drawing anything yet.
+---
 
-### Objectives
-- Enumerate physical devices (GPUs)
-- Select a suitable device
-- Identify required queue families (graphics and present)
-- Create a logical Vulkan device
-- Enable required device extensions (swapchain)
+## 📚 What is implemented
+- Physical device selection
+- Logical device + queues
+- Swapchain creation
+- Image views
+- Render pass
+- Framebuffers
+- Command pool + command buffers
+- Synchronization (semaphores + fences)
+- Frame loop: acquire → submit → present
 
-### Scope
-- No swapchain creation yet
-- No rendering or framebuffers
-- No shaders or pipelines
+---
 
-This milestone is complete when a logical device is successfully created with valid graphics and present
+## 🧠 What I learned
+- Swapchain is the core of presentation
+- Vulkan rendering requires multiple steps
+- Synchronization is mandatory
+- GPU and CPU run asynchronously
+
+---
+
+## ✅ Done when
+- Screen is cleared with a solid color every frame
+- No flickering
+- No validation errors
+- Application runs stable
+
+---
+
+## ⚠️ Notes
+- No textures or images yet
+- This is the first "it works" Vulkan moment
