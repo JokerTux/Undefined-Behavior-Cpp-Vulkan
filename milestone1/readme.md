@@ -1,18 +1,31 @@
-## Milestone 1 - Vulkan Initialization
+# Milestone 1 — Vulkan Initialization
 
-**Goal:** Initialize Vulkan and connect it to a windowing system.
+## 🎯 Goal
+Initialize Vulkan without rendering anything.
 
-This milestone introduces Vulkan at the lowest level, focusing only on setup and validation, without rendering anything yet.
+---
 
-### Objectives
-- Create a Vulkan instance
-- Enable validation layers (debug mode)
-- Create a Vulkan surface using SDL
-- Verify that Vulkan initializes correctly on the system
+## 📚 What is implemented
+- Vulkan instance creation
+- Validation layers (debug mode)
+- SDL Vulkan surface creation
 
-### Scope
-- No swapchain
-- No rendering or draw calls
-- No shaders or pipelines
-nThis milestone is complete when the application starts with Vulkan validation enabled and successfully creates a surface attached to the window.
+---
 
+## 🧠 What I learned
+- Vulkan is explicit and verbose
+- Instance ≠ Device ≠ Surface
+- Importance of validation layers
+
+---
+
+## ✅ Done when
+- Vulkan instance is created successfully
+- Surface is created from SDL window
+- No validation errors
+
+---
+
+## ⚠️ Notes
+- No rendering yet
+- This is only setup
