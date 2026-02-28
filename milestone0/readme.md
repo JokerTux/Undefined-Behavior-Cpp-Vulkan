@@ -1,20 +1,32 @@
-## Milestone 0 - Foundations
+# Milestone 0 — Font Rendering + FPS Counter
 
-**Goal:** Set up the basic application skeleton and learn core C++ and engine fundamentals.
+## 🎯 Goal
+Display text on screen (font rendering) and show current FPS.
 
-This milestone focuses on understanding how a real-time application is structured, without any game logic or graphics complexity yet.
+---
 
-### Objectives
-- Create a window using SDL
-- Implement a clean main loop
-- Handle user input and window events
-- Measure delta time and FPS
-- Practice C++ basics (classes, ownership, RAII)
+## 📚 What is implemented
+- SDL window creation
+- Font rendering using SDL_ttf
+- FPS calculation (delta time based)
+- Real-time text update
 
-### Scope
-- No rendering pipeline
-- No Vulkan usage yet
-- No gameplay systems
+---
 
-This milestone is complete when the application runs reliably, reports timing information, and shuts down cleanly.
+## 🧠 What I learned
+- Basic rendering loop structure
+- Delta time vs FPS
+- Handling text rendering in real time
 
+---
+
+## ✅ Done when
+- FPS is visible and updates correctly
+- Text renders without flickering
+- Application exits cleanly
+
+---
+
+## ⚠️ Notes
+- This milestone does not use Vulkan
+- Some shortcuts were accepted for learning purposes
