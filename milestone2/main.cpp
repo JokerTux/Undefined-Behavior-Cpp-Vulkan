@@ -17,10 +17,16 @@ struct Frame_stats{
 	double dt;
 };
 
-
-struct Windows_size{
-	int win_w;
-	int win_h;
+struct QueueFamInd{
+	uint32_t graphic_fam = 0;
+	uint32_t present_fam = 0;
+	
+	bool graphic_fam_found = false;
+	bool present_fam_found = false;
+	
+	bool is_complete() const{
+		return graphic_fam_found && present_fam_found;
+	}
 };
 
 
@@ -100,10 +106,11 @@ class Display_window{
 		return extensions;
 	}
     
-    Windows_size get_window_details(){
+    //this is no longer needed since we use another function from vulkan.
+    /*Windows_size get_window_details(){
     	SDL_GetWindowSize(window, &window_width, &window_height);
     	return {window_width, window_height};
-    }
+    }*/
 	
 	private:
 		SDL_Window *window = nullptr; //owning.
@@ -202,68 +209,83 @@ class Vulkan_init{
 			return devices;
 		}
 
-		bool chk_if_dev_suitable(VkPhysicalDevice devices, VkSurfaceKHR surface){
+		QueueFamInd find_queue_families(VkPhysicalDevice devices, VkSurfaceKHR surface){
+			QueueFamInd	indices;
+			uint32_t pQueueFamilyPropertyCount = 0;
+
 			vkGetPhysicalDeviceQueueFamilyProperties(devices, &pQueueFamilyPropertyCount, nullptr);
 
 			std::vector<VkQueueFamilyProperties> families(pQueueFamilyPropertyCount);
 			vkGetPhysicalDeviceQueueFamilyProperties(devices, &pQueueFamilyPropertyCount, families.data());
 
-			bool gpu_found = false;
-			bool gpu_present = false;
-
 			for(uint32_t i = 0; i < pQueueFamilyPropertyCount; i++){
-				if(families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT){
-					gpu_found = true;
-					std::cout << "GPU FOUND !!" << std::endl;
-					export_index_gpu_graphic_q = i;
-				}
 
-				if(gpu_found && gpu_present){
-				std::cout << "gpu_found and gpu_present" << gpu_found << gpu_present << std::endl;
-			    return true;	
+				if(!indices.graphic_fam_found && (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)){
+					indices.graphic_fam = i;
+					indices.graphic_fam_found = true;
+					std::cout << "graphic_fam : " << indices.graphic_fam << std::endl;
 				}
 
 			    VkBool32 present_support = false;
-
         		vkGetPhysicalDeviceSurfaceSupportKHR(devices, i, surface, &present_support);
 
-	        	if(present_support){
-	        	    gpu_present = true;
-	        	    std::cout << "GPU PRESENT FOUND !!" << std::endl;
-	        	    export_index_gpu_present_q = i;
+	        	if(present_support && !indices.present_fam_found){
+	        	    indices.present_fam = i;
+					indices.present_fam_found = true;
+					std::cout << "present_fam : " << indices.present_fam << std::endl;
+	   			}
+
+	   			if(indices.is_complete()){
+	   				break;
 	   			}
 	   			
 			}
 
-			std::cout << "gpu_found and gpu_present" << gpu_found << gpu_present << std::endl;
-			return false;
+			return indices;
 		}
 		
 		bool select_device(){
 			auto devices = enumerate_gpus(instance);
 
 			for(const auto& device : devices){
-				if(chk_if_dev_suitable(device, surface)){
-					phys_dev = device;
-					std::cout << "device sleceted : "<< device << std::endl;
-					return true;
+				QueueFamInd indices = find_queue_families(device, surface);
+				
+				if(!indices.is_complete()){
+					continue;
 				}
+
+				if(!sup_swapchain_ext(device)){
+					continue;
+				}
+				phys_dev = device;
+
+				export_index_gpu_graphic_q = indices.graphic_fam;
+				export_index_gpu_present_q = indices.present_fam;
+				
+				VkPhysicalDeviceProperties props;
+    			vkGetPhysicalDeviceProperties(device, &props);
+				
+				std::cout << "device sleceted : "<< device << std::endl;
+				std::cout << "graphic_fam : "<< export_index_gpu_graphic_q << " present_fam : " << export_index_gpu_present_q << std::endl;
+				return true;
 			}
 			return false;
 		}
 
-		bool sup_swapchain_ext(){
-			VkResult r_swap = vkEnumerateDeviceExtensionProperties(phys_dev, nullptr, &pPropertyCount, nullptr);
+		bool sup_swapchain_ext(VkPhysicalDevice device){
+			uint32_t pPropertyCount = 0;
+
+			VkResult r_swap = vkEnumerateDeviceExtensionProperties(device, nullptr, &pPropertyCount, nullptr);
 			if(r_swap != VK_SUCCESS || pPropertyCount == 0) return false;
 
 			std::vector<VkExtensionProperties> ext_props(pPropertyCount);
-			r_swap = vkEnumerateDeviceExtensionProperties(phys_dev, nullptr, &pPropertyCount, ext_props.data());
+			r_swap = vkEnumerateDeviceExtensionProperties(device, nullptr, &pPropertyCount, ext_props.data());
 			if(r_swap != VK_SUCCESS) return false;
 
 			//c++ magic : 
 			for(const auto& e_p : ext_props){
 				if(strcmp(e_p.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0){
-					std::cout << "found VK_KHR_SWAPCHAIN_EXTENSION_NAME" << std::endl;
+					std::cout << "found {VK_KHR_SWAPCHAIN_EXTENSION_NAME} : " << e_p.extensionName << std::endl;
 					return true;
 				}
 			}
@@ -324,7 +346,6 @@ class Vulkan_init{
 			//enables the swapchain capability 
 			std::vector<const char*> device_exts = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
-			if(!sup_swapchain_ext()) return false;
 			if(!q_device_info(device_exts)) return false;
 
 			return true;
@@ -410,15 +431,61 @@ class Vulkan_init{
 			return true;
 		}
 
-		bool swap_init(){
+		uint32_t chose_img_count(){
+			uint32_t count_img = pSurfaceCapabilities.minImageCount + 1;
+
+			if(pSurfaceCapabilities.maxImageCount > 0 && count_img > pSurfaceCapabilities.maxImageCount){
+				count_img = pSurfaceCapabilities.maxImageCount;
+			}
+
+			return count_img;
+		}
+
+		VkExtent2D choose_extent(SDL_Window* window){
+			int w = 0, h = 0;
+			std::cout << "pSurfaceCapabilities.maxImageExtent.width : "<< pSurfaceCapabilities.maxImageExtent.width << std::endl;
+			std::cout << "pSurfaceCapabilities.maxImageExtent.height : "<< pSurfaceCapabilities.maxImageExtent.height << std::endl;
+
+			if(pSurfaceCapabilities.currentExtent.width != UINT32_MAX){
+				return pSurfaceCapabilities.currentExtent;
+			}
+			
+			SDL_Vulkan_GetDrawableSize(window, &w, &h);
+			std::cout << "caps width : " << w << std::endl;
+			std::cout << "caps height : " << h << std::endl;
+
+			VkExtent2D extent;
+			extent.width = static_cast<uint32_t>(w);
+			extent.height = static_cast<uint32_t>(h);
+
+			if(extent.width	< pSurfaceCapabilities.minImageExtent.width){
+				extent.width = pSurfaceCapabilities.minImageExtent.width;
+			}
+
+			if(extent.width	> pSurfaceCapabilities.maxImageExtent.width){
+				extent.width = pSurfaceCapabilities.maxImageExtent.width;
+			}
+
+			if(extent.height < pSurfaceCapabilities.minImageExtent.height){
+				extent.height = pSurfaceCapabilities.minImageExtent.height;
+			}
+
+			if(extent.height > pSurfaceCapabilities.maxImageExtent.height){
+				extent.height = pSurfaceCapabilities.maxImageExtent.height;
+			}
+
+			return extent;
+		}
+
+		bool swap_init(SDL_Window* window){
 			uint32_t indices[] = {export_index_gpu_graphic_q, export_index_gpu_present_q};
 
 			VkSwapchainCreateInfoKHR swapInfo{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
 			swapInfo.surface = surface;
-			swapInfo.minImageCount = pSurfaceCapabilities.minImageCount + 1;
+			swapInfo.minImageCount = chose_img_count();
 			swapInfo.imageFormat = chosenFormat.format;
 			swapInfo.imageColorSpace = chosenFormat.colorSpace;
-			swapInfo.imageExtent = pSurfaceCapabilities.currentExtent;
+			swapInfo.imageExtent = choose_extent(window);
 			swapInfo.imageArrayLayers = 1; //2d - no depth 
 			swapInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 			swapInfo.preTransform = pSurfaceCapabilities.currentTransform;
@@ -443,7 +510,7 @@ class Vulkan_init{
 			
 		}
 
-		bool re_swap_init(){
+		bool re_swap_init(SDL_Window* window){
 			uint32_t indices[] = {export_index_gpu_graphic_q, export_index_gpu_present_q};
 
 			//wait until gpu is not using the swapchain anymore
@@ -453,10 +520,10 @@ class Vulkan_init{
 
 			VkSwapchainCreateInfoKHR re_swapInfo{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
 			re_swapInfo.surface = surface;
-			re_swapInfo.minImageCount = pSurfaceCapabilities.minImageCount + 1;
+			re_swapInfo.minImageCount = chose_img_count();
 			re_swapInfo.imageFormat = chosenFormat.format;
 			re_swapInfo.imageColorSpace = chosenFormat.colorSpace;
-			re_swapInfo.imageExtent = pSurfaceCapabilities.currentExtent;
+			re_swapInfo.imageExtent = choose_extent(window);
 			re_swapInfo.imageArrayLayers = 1; //2d - no depth 
 			re_swapInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 			re_swapInfo.preTransform = pSurfaceCapabilities.currentTransform;
@@ -495,15 +562,106 @@ class Vulkan_init{
 			if(get_img_swap == VK_SUCCESS){
 				swapchainImages.resize(pSwapchainImageCount);
 				VkResult swap_imgs = vkGetSwapchainImagesKHR(device, swapchain, &pSwapchainImageCount, swapchainImages.data());
+				/*for(uint32_t a111 = 0; a111 < pSwapchainImageCount; a111++){
+					std::cout << swapchainImages.data()[a111] << std::endl;
+				}*/
 				if(swap_imgs == VK_SUCCESS) return true;
 			}
-			/*for(uint32_t a111 = 0; a111 < pSwapchainImageCount; a111++){
-				std::cout << swapchainImages.data()[a111] << std::endl;
-			}*/				
+							
 			return false;	
 		}
 
+		bool create_image_views(){
+			swapchainImagesView.resize(swapchainImages.size());
+			for(size_t ab12 = 0; ab12 < swapchainImagesView.size(); ab12++){
+				VkImageViewCreateInfo view_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+				
+				view_info.image = swapchainImages[ab12];
+				view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+				view_info.format = chosenFormat.format;
+
+				view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+				view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+				view_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+				view_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+				view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				view_info.subresourceRange.baseMipLevel = 0;
+				view_info.subresourceRange.levelCount = 1;
+				view_info.subresourceRange.baseArrayLayer = 0;
+				view_info.subresourceRange.layerCount = 1;
+
+				VkResult r_view_info = vkCreateImageView(device, &view_info, nullptr, &swapchainImagesView[ab12]);
+				if(r_view_info != VK_SUCCESS){
+					std::cerr << "vkCreateImageView failed at index : " << ab12 << std::endl;
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		bool create_render_pass(){
+			std::cout << "chosenFormat.format : " << chosenFormat.format << std::endl;
+
+			VkAttachmentDescription color_attachments{};
+			color_attachments.format = chosenFormat.format;
+			color_attachments.samples = VK_SAMPLE_COUNT_1_BIT;
+			color_attachments.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			color_attachments.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+			color_attachments.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			color_attachments.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			color_attachments.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			color_attachments.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+			VkAttachmentReference color_attachment_ref{};
+			color_attachment_ref.attachment = 0;
+			color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+			VkSubpassDescription subpass{};
+			subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+			subpass.colorAttachmentCount = 1;
+			subpass.pColorAttachments = &color_attachment_ref;
+
+			VkSubpassDependency dependency{};
+			dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+			dependency.dstSubpass = 0;
+			dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			dependency.srcAccessMask = 0;
+			dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+			VkRenderPassCreateInfo render_pass_info{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+			render_pass_info.attachmentCount = 1;
+			render_pass_info.pAttachments = &color_attachments;
+			render_pass_info.subpassCount = 1;
+			render_pass_info.pSubpasses = &subpass;
+			render_pass_info.dependencyCount = 1;
+			render_pass_info.pDependencies = &dependency;
+
+			VkResult r_render_pass = vkCreateRenderPass(device, &render_pass_info, nullptr, &render_pass);
+			
+			if(r_render_pass != VK_SUCCESS){
+				std::cerr << "vkCreateRenderPass failed " << std::endl;
+				return false;
+			}
+
+			return true;
+		}
+
 		~Vulkan_init(){
+			if(render_pass != VK_NULL_HANDLE){
+				vkDestroyRenderPass(device, render_pass, nullptr);
+				render_pass = VK_NULL_HANDLE;
+			}
+
+			for(auto view : swapchainImagesView){
+				if(view != VK_NULL_HANDLE){
+					vkDestroyImageView(device, view, nullptr);
+				}
+			}
+			swapchainImagesView.clear();
+
 			if(swapchain != VK_NULL_HANDLE){
 				vkDestroySwapchainKHR(device, swapchain, nullptr);
 				swapchain = VK_NULL_HANDLE;
@@ -537,17 +695,17 @@ class Vulkan_init{
 		VkQueue gpu_queue = VK_NULL_HANDLE;
 		VkQueue present_queue = VK_NULL_HANDLE;
 		VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+		VkRenderPass render_pass = VK_NULL_HANDLE;
 		std::vector<VkSurfaceFormatKHR> pSurfaceFormats;
 		VkSurfaceFormatKHR chosenFormat = {};
 		std::vector<VkPresentModeKHR> pPresentModes;
 		std::vector<VkImage> swapchainImages;
+		std::vector<VkImageView> swapchainImagesView;
 		VkPresentModeKHR chosenPresentMode = {};
 		VkSurfaceCapabilitiesKHR pSurfaceCapabilities = {};
 		VkPhysicalDeviceFeatures support_gpu{};
-		uint32_t pQueueFamilyPropertyCount = 0;
 		uint32_t export_index_gpu_graphic_q = 0; // very important for later.
 		uint32_t export_index_gpu_present_q = 0; // very important for later.
-		uint32_t pPropertyCount = 0;
 		uint32_t pSurfaceFormatCount = 0;
 		uint32_t pPresentModeCount = 0;
 		uint32_t pSwapchainImageCount = 0;
@@ -566,6 +724,8 @@ int main(int argc, char** argv){
 		auto extensions = display_window.get_vk_ext();
 		if(extensions.empty()) return 1;
 
+		QueueFamInd	indices;
+
 		Vulkan_init vulkan_init;
 		
 		if(!vulkan_init.init(extensions)) return 1;
@@ -576,14 +736,21 @@ int main(int argc, char** argv){
 		if(!vulkan_init.sur_cap_KHR()) return 1;
 		if(!vulkan_init.des_formats_chk()) return 1;
 		if(!vulkan_init.modes_chk()) return 1;
-		if(!vulkan_init.swap_init()) return 1;
+		if(!vulkan_init.swap_init(display_window.get_window())) return 1;
 		if(!vulkan_init.swap_get_images()) return 1;
-		if(!vulkan_init.re_swap_init()) return 1;
-		
+		if(!vulkan_init.create_image_views()) return 1;
+		if(!vulkan_init.create_render_pass()) return 1;
+		//if(!vulkan_init.re_swap_init()) return 1;
+
 		while(display_window.run_window){
-				display_window.input_from_usr();
-				Frame_stats	stats = display_window.delta_time_fps();
-				Windows_size w_size = display_window.get_window_details();
+			display_window.input_from_usr();
+			Frame_stats	stats = display_window.delta_time_fps();
+			//std::cout << "present_fam : " << indices.present_fam << std::endl;
+			//Windows_size w_size = display_window.get_window_details();				
+			/* this worsk :
+			if(!vulkan_init.re_swap_init(display_window.get_window())) return 1;*/
+
+			
 		}
 		//std::cerr << "loop ended \n"; 
 	}
