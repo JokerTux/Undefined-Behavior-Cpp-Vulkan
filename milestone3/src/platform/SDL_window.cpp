@@ -1,5 +1,11 @@
-#include <SDL2/SDL_events.h>
-#include <SDL2/SDL_video.h>
+/*
+#############################################################################################################
+	TODO :
+		 -check if os = linux || win 
+		 -create a window for each os
+#############################################################################################################
+*/
+
 #include <iostream>
 #include "SDL_window.h"
 
@@ -29,7 +35,6 @@ Display_window::~Display_window(){
 	}
 
 void Display_window::input_from_usr(){
-
 	SDL_Event event;
 	while(SDL_PollEvent(&event)){
 		if(event.type == SDL_QUIT){
@@ -47,6 +52,10 @@ void Display_window::input_from_usr(){
 			window_resized = true;
 		}
 	}
+}
+
+bool Display_window::get_window_state(){
+	return run_window;
 }
 
 Frame_stats Display_window::delta_time_fps(){

@@ -1,67 +1,55 @@
-#include "vk_utils.h"
+#include <iostream>
+#include "swapchain.h"
 
-bool Swapchain_creation::queue_dev(VkContext* vkcontext){
-	const float qPriorities = 1.0f;
-
-	VkDeviceQueueCreateInfo queueInfo = {};
-	queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	queueInfo.queueFamilyIndex = vkcontext->graphicsIndex;
-	queueInfo.queueCount = 1;
-	queueInfo.pQueuePriorities = &qPriorities;
-
-	char* dev_extensions[0] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-
-	VkDeviceCreateInfo deviceInfo = {};
-	deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	deviceInfo.pQueueCreateInfos = &queueInfo;
-	deviceInfo.queueCreateInfoCount = 1;
-	deviceInfo.ppEnabledExtensionNames = dev_extensions;
-	deviceInfo.enabledExtensionCount = sizeof(dev_extensions) / sizeof(dev_extensions[0]);
-
-	/* enabledLayerCount and ppEnabledLayerNames are legacy and should not be used
-			(https://docs.vulkan.org/refpages/latest/refpages/source/VkDeviceCreateInfo.html)*/
-	deviceInfo.enabledLayerCount = 0;
-	deviceInfo.ppEnabledLayerNames = nullptr;
-
-
-	VK_CHECK(vkCreateDevice(vkcontext->gpu, &deviceInfo, nullptr, &vkcontext->device));
-
-	//swapchain
-	uint32_t formatCount = 0;
-	VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vkcontext->gpu, vkcontext->surface, &formatCount, 0));
-	VkSurfaceFormatKHR surfaceFormats[formatCount];
-	VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vkcontext->gpu, vkcontext->surface, &formatCount, surfaceFormats));
+bool Swapchain_creation::create_swap(VkContext* vkcontext, SDL_Window* window){
+	des_context = vkcontext;
+	//std::cout << "vkcontext->SurfaceCapabilities.minImageCount : " << vkcontext->SurfaceCapabilities.minImageCount << std::endl;
+	uint32_t imgCount = vkcontext->SurfaceCapabilities.minImageCount + 1;
 	
-	for(uint32_t i = 0; i < formatCount; i++){
-		VkSurfaceFormatKHR format = surfaceFormats[i];
-		if(format.format == VK_FORMAT_B8G8R8A8_SRGB){
-			vkcontext->surfaceFormat = format;
-			break;
-		}
+	if (vkcontext->SurfaceCapabilities.maxImageCount > 0 && imgCount > vkcontext->SurfaceCapabilities.maxImageCount) {
+        imgCount = vkcontext->SurfaceCapabilities.maxImageCount;
+    }
+
+	VkSwapchainCreateInfoKHR swapInfo = {};
+	swapInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	swapInfo.surface = vkcontext->surface;
+	swapInfo.minImageCount = imgCount;
+	swapInfo.imageFormat = vkcontext->surfaceFormat.format;
+	swapInfo.imageColorSpace = vkcontext->surfaceFormat.colorSpace;
+	swapInfo.imageExtent = vkcontext->SurfaceCapabilities.currentExtent;
+	swapInfo.imageArrayLayers = 1;
+	swapInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	swapInfo.preTransform = vkcontext->SurfaceCapabilities.currentTransform;
+	swapInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	swapInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+	swapInfo.clipped = VK_TRUE;
+	swapInfo.oldSwapchain = VK_NULL_HANDLE;
+
+	uint32_t queue_fam_indexes[] = {vkcontext->graphicsIndex, vkcontext->presentIndex};
+
+	if(vkcontext->graphicsIndex != vkcontext->presentIndex){
+		swapInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+		swapInfo.queueFamilyIndexCount = 2;
+		swapInfo.pQueueFamilyIndices = queue_fam_indexes;
+	}
+	else{
+		swapInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	}
 
-	VkSurfaceCapabilitiesKHR surfaceCaps = {};
-	VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkcontext->gpu, vkcontext->surface, &surfaceCaps));
+	VK_CHECK(vkCreateSwapchainKHR(vkcontext->device, &swapInfo, 0, &vkcontext->swapchain));
+	std::cout << "swapchain is working" << std::endl;
+	
+	uint32_t get_imgCount = 0;
+	VK_CHECK(vkGetSwapchainImagesKHR(vkcontext->device, vkcontext->swapchain, &get_imgCount, nullptr));
+	vkcontext->swapchainImages.resize(get_imgCount);
+	VK_CHECK(vkGetSwapchainImagesKHR(vkcontext->device, vkcontext->swapchain, &get_imgCount, vkcontext->swapchainImages.data()));
 
 	return true;
 }
 
-bool Swapchain_creation::create_swap(VkContext* vkcontext){
-	uint32_t imgCount = surfaceCaps.minImageCount + 1;
-	imgCount = imgCount > surfaceCaps.maxImageCount ? imgCount - 1 : imgCount;
-
-	VkSwapchainCreateInfoKHR swapInfo = {};
-	swapInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	swapInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	swapInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	swapInfo.surface = vkcontext->surface;
-	swapInfo.imageFormat = vkcontext->surfaceFormat.format;
-	swapInfo.preTransform = surfaceCaps.currentTransform;
-	swapInfo.imageExtent = surfaceCaps.currentExtent;
-	swapInfo.minImageCount = imgCount;
-	swapInfo.imageArrayLayers = 1;
-
-	VK_CHECK(vkCreateSwapchainKHR(vkcontext->device, &swapInfo, 0, &vkcontext->swapchain));
-	
-	return true;
+Swapchain_creation::~Swapchain_creation(){
+	if(des_context && des_context->swapchain != VK_NULL_HANDLE){
+		vkDestroySwapchainKHR(des_context->device, des_context->swapchain, nullptr);
+		des_context->swapchain = VK_NULL_HANDLE;
+	}
 }

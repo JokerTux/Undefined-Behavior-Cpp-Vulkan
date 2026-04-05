@@ -1,6 +1,10 @@
 #pragma once
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_vulkan.h>
+#include <SDL2/SDL_events.h>
+#include <SDL2/SDL_video.h>
+#include "../renderer/vk_utils.h"
 
 struct Frame_stats{
 	double fps;
@@ -12,7 +16,7 @@ struct Frame_stats{
 class Display_window{
 	public:
 		SDL_Window* get_window() const;
-		
+		bool get_window_state();
 		Display_window();
 		~Display_window();
 	

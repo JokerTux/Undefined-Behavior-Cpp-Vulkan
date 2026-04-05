@@ -6,8 +6,8 @@
 class Vulkan_init{
 	public:
 		bool init(VkContext* vkcontext);
-		/*TODO: ~Vulkan_init();*/
+		~Vulkan_init();
 
 	private:
-		VkContext* clear = nullptr;
+		VkContext* context = VK_NULL_HANDLE;
 };

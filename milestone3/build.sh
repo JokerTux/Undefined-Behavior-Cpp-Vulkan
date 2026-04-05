@@ -2,18 +2,26 @@
 
 SRC=src
 OUT=bin
-EXE=picture.exe
+EXE=mesh.exe
 
 mkdir -p $OUT
 
-g++							 \
-$SRC/main.cpp 				 \
-$SRC/platform/SDL_window.cpp \
-$SRC/renderer/vk_init.cpp 	 \
--o $OUT/$EXE 				 \
--lmingw32  					 \
--lSDL2main 					 \
--lSDL2 						 \
+g++							 	\
+$SRC/main.cpp 				 	\
+$SRC/platform/SDL_window.cpp 	\
+$SRC/renderer/instance.cpp 	 	\
+$SRC/renderer/surface.cpp 	 	\
+$SRC/renderer/device.cpp  	 	\
+$SRC/renderer/swapchain.cpp  	\
+$SRC/renderer/image_views.cpp 	\
+$SRC/renderer/render_pass.cpp 	\
+$SRC/renderer/framebuffers.cpp 	\
+$SRC/renderer/command_pool.cpp 	\
+$SRC/renderer/pipeline.cpp 		\
+-o $OUT/$EXE 				 	\
+-lmingw32  					 	\
+-lSDL2main 					 	\
+-lSDL2 						 	\
 -lvulkan-1
 
 echo "Build complete!"
