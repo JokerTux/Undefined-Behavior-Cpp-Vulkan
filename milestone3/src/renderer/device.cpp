@@ -2,13 +2,15 @@
 #############################################################################################################
 	TODO :
 		 -select the proper GPU type.
+
+	Remeber you
 #############################################################################################################
 */
-
 #include "device.h"
 #include <cstring>
 #include <stdexcept>
 #include <set>
+
 
 struct QueueFamInd{
 	uint32_t graphic_fam = 0;
@@ -66,9 +68,8 @@ static bool support_required_extensions(VkPhysicalDevice device){
 
 	std::vector<VkExtensionProperties> ext_props(pPropertyCount);
 	VK_CHECK(vkEnumerateDeviceExtensionProperties(device, nullptr, &pPropertyCount, ext_props.data()));
-			
-	//c++ magic : 
-	for(const auto& e_p : ext_props){
+	
+	for(const VkExtensionProperties& e_p : ext_props){
 		if(strcmp(e_p.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0){
 			std::cout << "{VK_KHR_SWAPCHAIN_EXTENSION_NAME} has been found : " << e_p.extensionName << std::endl;
 			return true;
@@ -132,8 +133,6 @@ bool Select_device::pick_physical_device(VkContext* vkcontext){
 		}
 		best_indices = indices;
 
-
-
 		/*
 		TODO:
 		typedef enum VkPhysicalDeviceType {
@@ -144,12 +143,10 @@ bool Select_device::pick_physical_device(VkContext* vkcontext){
     	VK_PHYSICAL_DEVICE_TYPE_CPU = 4,
 		} VkPhysicalDeviceType;*/
 
-
 		if(props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){
 			gpu_type = 2;
 			//chosing the gpu
 			best_device = device;
-
 			std::cout << "external gpu type." << std::endl;
 			break;
 		}
@@ -209,6 +206,7 @@ bool Select_device::create_logical_device(VkContext* vkcontext){
 	vkGetDeviceQueue(vkcontext->device, vkcontext->graphicsIndex, 0, &vkcontext->graphicsQueue);
 	vkGetDeviceQueue(vkcontext->device, vkcontext->presentIndex, 0, &vkcontext->presentQueue);
 	
+	std::cout << "device_exts : " << device_exts[0] << std::endl;
 	std::cout << "done" << std::endl;
 
 	return true;
@@ -216,6 +214,7 @@ bool Select_device::create_logical_device(VkContext* vkcontext){
 
 Select_device::~Select_device(){
 	if(des_context && des_context->device != VK_NULL_HANDLE){
+		vkDeviceWaitIdle(des_context->device);
 		vkDestroyDevice(des_context->device, nullptr);
 		des_context->device = VK_NULL_HANDLE;
 	}

@@ -9,5 +9,5 @@ class Create_render_pass{
 		~Create_render_pass();
 
 	private:
-		VkContext* des_context = VK_NULL_HANDLE;
+		VkContext* des_context = nullptr;
 };

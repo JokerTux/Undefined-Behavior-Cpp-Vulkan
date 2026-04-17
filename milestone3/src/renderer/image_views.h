@@ -8,5 +8,5 @@ class Image_views{
 		bool create_views(VkContext* vkcontext);
 		~Image_views();
 	private:
-		VkContext* des_context = VK_NULL_HANDLE;
+		VkContext* des_context = nullptr;
 };

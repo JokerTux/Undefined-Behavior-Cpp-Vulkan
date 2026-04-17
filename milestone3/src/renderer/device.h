@@ -12,5 +12,5 @@ class Select_device{
 		~Select_device();
 
 	private:
-		VkContext* des_context = VK_NULL_HANDLE;
+		VkContext* des_context = nullptr;
 };

@@ -18,14 +18,12 @@ class Display_window{
 		SDL_Window* get_window() const;
 		bool get_window_state();
 		Display_window();
-		~Display_window();
-	
 		void input_from_usr();
 		Frame_stats delta_time_fps();
-
 		bool is_running();
 		bool was_resized();
 		void reset_resized_flag();
+		~Display_window();
 
 	private:
 		SDL_Window* window = nullptr;

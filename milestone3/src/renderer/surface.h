@@ -13,5 +13,5 @@ class Init_surface{
 		~Init_surface();
 
 	private:
-		VkContext* des_context = VK_NULL_HANDLE;
+		VkContext* des_context = nullptr;
 };

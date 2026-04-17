@@ -14,7 +14,7 @@ bool Command_pool::create_command_pool(VkContext* vkcontext){
 
 bool Command_pool::create_command_buffers(VkContext* vkcontext){
 	des_context = vkcontext;
-	vkcontext->commandBuffers.resize(vkcontext->framebuffers.size());
+	vkcontext->commandBuffers.resize(vkcontext->MAX_FRAMES_IN_FLIGHT);
 
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -26,31 +26,34 @@ bool Command_pool::create_command_buffers(VkContext* vkcontext){
 	return true;
 }
 
-bool Command_pool::record_command_buff(VkContext* vkcontext){
-	for(size_t i = 0; i < vkcontext->commandBuffers.size(); i++){
-		VkCommandBufferBeginInfo beginInfo{};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = 0;
-		beginInfo.pInheritanceInfo = nullptr;
+bool Command_pool::record_command_buff(VkContext* vkcontext, uint32_t currentFrame, uint32_t imageIndex){
+	VkCommandBuffer cmd = vkcontext->commandBuffers[currentFrame];
 
-		VK_CHECK(vkBeginCommandBuffer(vkcontext->commandBuffers[i], &beginInfo));
+	VK_CHECK(vkResetCommandBuffer(cmd, 0));
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = 0;
+	beginInfo.pInheritanceInfo = nullptr;
+
+	VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfo));
 	
-		VkClearValue clearColor = {{{1.0f, 0.1f, 0.1f, 1.0f}}};
+	VkClearValue clearColor = {{{0.0f, 0.1f, 0.1f, 1.0f}}};
 
-		VkRenderPassBeginInfo renderPassInfo{};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = vkcontext->render_pass;
-		renderPassInfo.framebuffer = vkcontext->framebuffers[i];
-		renderPassInfo.renderArea.offset = {0, 0};
-		renderPassInfo.renderArea.extent = vkcontext->swapchainExtent;
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearColor;
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = vkcontext->render_pass;
+	renderPassInfo.framebuffer = vkcontext->framebuffers[imageIndex];
+	renderPassInfo.renderArea.offset = {0, 0};
+	renderPassInfo.renderArea.extent = vkcontext->swapchainExtent;
+	renderPassInfo.clearValueCount = 1;
+	renderPassInfo.pClearValues = &clearColor;
 
-		vkCmdBeginRenderPass(vkcontext->commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		vkCmdEndRenderPass(vkcontext->commandBuffers[i]);
-
-		VK_CHECK(vkEndCommandBuffer(vkcontext->commandBuffers[i]));
-	}
+	vkCmdBeginRenderPass(cmd, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vkcontext->graphicsPipeline);
+	vkCmdDraw(cmd, 3, 1, 0, 0);
+	vkCmdEndRenderPass(cmd);
+	VK_CHECK(vkEndCommandBuffer(cmd));
+	
 	return true;
 }
 

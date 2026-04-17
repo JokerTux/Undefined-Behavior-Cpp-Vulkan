@@ -9,5 +9,5 @@ class Vulkan_init{
 		~Vulkan_init();
 
 	private:
-		VkContext* context = VK_NULL_HANDLE;
+		VkContext* context = nullptr;
 };

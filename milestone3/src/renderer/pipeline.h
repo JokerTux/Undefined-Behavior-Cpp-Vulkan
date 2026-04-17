@@ -8,5 +8,5 @@ class Graphics_pipeline{
 		~Graphics_pipeline();
 	
 	private:
-		VkContext* des_context = VK_NULL_HANDLE;
+		VkContext* des_context = nullptr;
 };
